@@ -1,0 +1,5 @@
+google-generativeai>=0.3.0
+python-docx>=0.8.11
+PyPDF2>=3.0.1
+pathlib
+# tkinter is included with Python by default
