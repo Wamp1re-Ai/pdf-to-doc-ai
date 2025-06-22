@@ -13,8 +13,11 @@ import google.generativeai as genai
 from docx import Document
 from docx.shared import Inches
 import PyPDF2
+import pdfplumber
+import fitz  # PyMuPDF
 import io
-from typing import Optional, List
+import re
+from typing import Optional, List, Tuple
 import logging
 
 # Configure logging
@@ -58,30 +61,133 @@ class PDFToWordConverter:
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """
-        Extract text content from PDF file
-        
+        Extract text content from PDF file using multiple methods for best results
+
         Args:
             pdf_path (str): Path to the PDF file
-            
+
         Returns:
-            str: Extracted text content
+            str: Extracted text content with proper spacing
         """
-        try:
-            with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                text_content = ""
-                
-                for page_num in range(len(pdf_reader.pages)):
-                    page = pdf_reader.pages[page_num]
-                    text_content += page.extract_text() + "\n\n"
-                    
-                logger.info(f"Extracted text from {len(pdf_reader.pages)} pages")
-                return text_content
-                
-        except Exception as e:
-            logger.error(f"Error extracting text from PDF: {str(e)}")
-            raise
-    
+        extraction_methods = [
+            ("pdfplumber", self._extract_with_pdfplumber),
+            ("PyMuPDF", self._extract_with_pymupdf),
+            ("PyPDF2", self._extract_with_pypdf2)
+        ]
+
+        for method_name, extraction_func in extraction_methods:
+            try:
+                logger.info(f"Trying extraction with {method_name}...")
+                text_content = extraction_func(pdf_path)
+
+                if text_content and text_content.strip():
+                    logger.info(f"Successfully extracted text using {method_name}")
+
+                    # Apply preprocessing to fix spacing issues
+                    processed_text = self._preprocess_spacing(text_content)
+                    return processed_text
+                else:
+                    logger.warning(f"{method_name} returned empty text")
+
+            except Exception as e:
+                logger.warning(f"{method_name} extraction failed: {str(e)}")
+                continue
+
+        raise Exception("All PDF extraction methods failed")
+
+    def _extract_with_pdfplumber(self, pdf_path: str) -> str:
+        """Extract text using pdfplumber (best for spacing)"""
+        text_content = ""
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages):
+                page_text = page.extract_text()
+                if page_text:
+                    text_content += page_text + "\n\n"
+            logger.info(f"pdfplumber: Extracted text from {len(pdf.pages)} pages")
+        return text_content
+
+    def _extract_with_pymupdf(self, pdf_path: str) -> str:
+        """Extract text using PyMuPDF (good for complex layouts)"""
+        text_content = ""
+        doc = fitz.open(pdf_path)
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            page_text = page.get_text()
+            if page_text:
+                text_content += page_text + "\n\n"
+        doc.close()
+        logger.info(f"PyMuPDF: Extracted text from {len(doc)} pages")
+        return text_content
+
+    def _extract_with_pypdf2(self, pdf_path: str) -> str:
+        """Extract text using PyPDF2 (fallback method)"""
+        text_content = ""
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                page_text = page.extract_text()
+                if page_text:
+                    text_content += page_text + "\n\n"
+            logger.info(f"PyPDF2: Extracted text from {len(pdf_reader.pages)} pages")
+        return text_content
+
+    def _preprocess_spacing(self, text: str) -> str:
+        """
+        Intelligent preprocessing to fix common spacing issues before AI processing
+        """
+        logger.info("Applying intelligent spacing preprocessing...")
+
+        # Fix merged words with common patterns
+        processed_text = text
+
+        # Pattern 1: Add space before capital letters in merged words (camelCase)
+        # But avoid breaking acronyms or proper nouns
+        processed_text = re.sub(r'([a-z])([A-Z])', r'\1 \2', processed_text)
+
+        # Pattern 2: Add space between word and number
+        processed_text = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', processed_text)
+        processed_text = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', processed_text)
+
+        # Pattern 3: Fix common merged words (add more as needed)
+        common_merges = {
+            r'andthe': 'and the',
+            r'ofthe': 'of the',
+            r'inthe': 'in the',
+            r'tothe': 'to the',
+            r'forthe': 'for the',
+            r'withthe': 'with the',
+            r'onthe': 'on the',
+            r'atthe': 'at the',
+            r'bythe': 'by the',
+            r'fromthe': 'from the',
+            r'thatthe': 'that the',
+            r'thisthe': 'this the',
+            r'itis': 'it is',
+            r'thisis': 'this is',
+            r'thereis': 'there is',
+            r'therefor': 'therefore',
+            r'however': 'however',
+            r'moreover': 'moreover',
+            r'furthermore': 'furthermore',
+        }
+
+        for merged, separated in common_merges.items():
+            processed_text = re.sub(merged, separated, processed_text, flags=re.IGNORECASE)
+
+        # Pattern 4: Fix punctuation spacing
+        processed_text = re.sub(r'([.!?])([A-Z])', r'\1 \2', processed_text)
+        processed_text = re.sub(r'([,;:])([a-zA-Z])', r'\1 \2', processed_text)
+
+        # Pattern 5: Clean up multiple spaces
+        processed_text = re.sub(r' +', ' ', processed_text)
+
+        # Pattern 6: Fix line breaks that split words
+        processed_text = re.sub(r'([a-z])-\n([a-z])', r'\1\2', processed_text)
+
+        logger.info("Spacing preprocessing completed")
+        return processed_text
+
     def process_with_gemini(self, text_content: str) -> str:
         """
         Process extracted text with Gemini API for better formatting with model fallback
@@ -93,21 +199,44 @@ class PDFToWordConverter:
             str: Processed and formatted text
         """
         prompt = f"""
-Clean up and format this text extracted from a PDF document. Follow these rules strictly:
+You are an expert text processor. Clean up this PDF-extracted text with EXTREME attention to word spacing:
 
-1. Fix OCR errors and garbled text
-2. Preserve original spacing and paragraph structure
-3. Maintain exact character spacing - do not add extra spaces between words
-4. Keep the original meaning and content structure
-5. Remove only obvious formatting artifacts (like random line breaks mid-sentence)
-6. Ensure proper punctuation and grammar
-7. Do NOT add any titles, headers, or introductory text
-8. Return ONLY the cleaned original content
+CRITICAL SPACING RULES:
+1. **MERGED WORDS**: Look for words stuck together and separate them properly
+   - Example: "thequick" → "the quick"
+   - Example: "andthe" → "and the"
+   - Example: "itis" → "it is"
+   - Example: "therefor" → "therefore"
+
+2. **MISSING SPACES**: Add spaces where words are clearly merged
+   - Between articles and nouns: "thedog" → "the dog"
+   - Between prepositions: "inthe" → "in the"
+   - Before capital letters: "wordAnother" → "word Another"
+   - Between numbers and words: "5years" → "5 years"
+
+3. **PRESERVE CORRECT SPACING**: Don't add extra spaces where they already exist correctly
+
+4. **OTHER FIXES**:
+   - Fix obvious OCR errors
+   - Maintain paragraph structure
+   - Fix punctuation spacing: "word.Another" → "word. Another"
+   - Remove random line breaks within sentences
+   - Keep original meaning and structure
+
+5. **DO NOT**:
+   - Add titles or headers
+   - Change the document structure
+   - Add commentary or explanations
+
+EXAMPLES OF SPACING FIXES:
+- "Thisisanimportantdocument" → "This is an important document"
+- "Thecompanyreported5milliondollars" → "The company reported 5 million dollars"
+- "However,theresults" → "However, the results"
 
 Text to process:
 {text_content}
 
-Return only the cleaned text with no additional commentary or formatting."""
+Return ONLY the corrected text with proper spacing:
 
         # Try models in fallback order
         for i, model_name in enumerate(self.model_names):
@@ -127,7 +256,49 @@ Return only the cleaned text with no additional commentary or formatting."""
                     return text_content
 
         return text_content
-    
+
+    def _post_process_spacing(self, text: str) -> str:
+        """
+        Final validation and fixing of spacing issues after AI processing
+        """
+        logger.info("Applying post-processing spacing validation...")
+
+        processed_text = text
+
+        # Check for remaining merged words using common patterns
+        suspicious_patterns = [
+            r'[a-z][A-Z]',  # camelCase
+            r'[a-zA-Z]\d',  # word followed by number
+            r'\d[a-zA-Z]',  # number followed by word
+            r'[.!?][A-Z]',  # punctuation followed by capital
+            r'[,;:][a-zA-Z]',  # punctuation followed by letter
+        ]
+
+        issues_found = 0
+        for pattern in suspicious_patterns:
+            matches = re.findall(pattern, processed_text)
+            if matches:
+                issues_found += len(matches)
+
+        if issues_found > 0:
+            logger.warning(f"Found {issues_found} potential spacing issues in post-processing")
+
+            # Apply final fixes
+            processed_text = re.sub(r'([a-z])([A-Z])', r'\1 \2', processed_text)
+            processed_text = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', processed_text)
+            processed_text = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', processed_text)
+            processed_text = re.sub(r'([.!?])([A-Z])', r'\1 \2', processed_text)
+            processed_text = re.sub(r'([,;:])([a-zA-Z])', r'\1 \2', processed_text)
+
+            # Clean up multiple spaces
+            processed_text = re.sub(r' +', ' ', processed_text)
+
+            logger.info("Applied final spacing corrections")
+        else:
+            logger.info("No spacing issues detected in post-processing")
+
+        return processed_text
+
     def create_word_document(self, processed_text: str, output_path: str) -> None:
         """
         Create a Word document from processed text with better formatting
@@ -209,11 +380,15 @@ Return only the cleaned text with no additional commentary or formatting."""
         
         # Step 2: Process with Gemini API
         logger.info("Processing text with Gemini API...")
-        processed_text = self.process_with_gemini(raw_text)
-        
-        # Step 3: Create Word document
+        ai_processed_text = self.process_with_gemini(raw_text)
+
+        # Step 3: Post-process for final spacing validation
+        logger.info("Applying final spacing validation...")
+        final_text = self._post_process_spacing(ai_processed_text)
+
+        # Step 4: Create Word document
         logger.info("Creating Word document...")
-        self.create_word_document(processed_text, output_path)
+        self.create_word_document(final_text, output_path)
         
         logger.info("Conversion completed successfully!")
         return output_path

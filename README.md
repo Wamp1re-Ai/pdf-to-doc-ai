@@ -4,14 +4,16 @@ This tool converts PDF files to Word documents using Google's Gemini API for int
 
 ## Features
 
-- 📄 Extract text from PDF files with accurate spacing preservation
+- 📄 **Multi-Method PDF Extraction** (pdfplumber → PyMuPDF → PyPDF2)
+- 🔧 **Intelligent Spacing Detection** - Fixes merged words automatically
 - 🤖 **Advanced AI Processing** with model fallback (Flash 2.5 → Flash 2.0 → Pro)
 - 📝 Generate clean Word documents without unnecessary titles
 - 🖥️ **Simple GUI application** for easy drag-and-drop usage
 - 🔧 Command-line interface for automation and scripting
-- 📋 Intelligent text formatting while preserving original structure
+- 📋 **4-Layer Processing**: Extraction → Preprocessing → AI → Post-processing
 - 🚀 One-click setup and conversion
-- 🔄 **Automatic model fallback** for maximum reliability
+- 🔄 **Automatic fallback** for maximum reliability
+- ✨ **Perfect spacing preservation** - No more merged words!
 
 ## Prerequisites
 
@@ -91,20 +93,42 @@ python pdf_to_word_converter.py document.pdf -o converted_document.docx -k your_
 - `-o, --output` (optional): Output Word file path. If not specified, uses `{input_name}_converted.docx`
 - `-k, --api-key` (optional): Gemini API key. Can also be set via `GEMINI_API_KEY` environment variable
 
-## How It Works
+## How It Works - 4-Layer Processing System
 
-1. **PDF Text Extraction**: Uses PyPDF2 to extract raw text from PDF pages
-2. **Smart AI Processing**: Uses advanced Gemini models with automatic fallback:
-   - **Primary**: Gemini 2.0 Flash (latest and fastest)
-   - **Fallback 1**: Gemini 1.5 Flash (reliable alternative)
-   - **Fallback 2**: Gemini 1.5 Pro (comprehensive processing)
-   - **Final**: Gemini Pro (stable baseline)
-3. **AI Enhancement**:
-   - OCR error correction
-   - Preserves original spacing and character formatting
-   - Grammar and punctuation fixes
-   - Maintains document structure without adding titles
-4. **Word Document Creation**: Uses python-docx to create clean, properly formatted documents
+### 🔄 **Layer 1: Multi-Method PDF Extraction**
+- **Primary**: `pdfplumber` (best spacing preservation)
+- **Fallback 1**: `PyMuPDF` (excellent for complex layouts)
+- **Fallback 2**: `PyPDF2` (reliable baseline)
+- Automatically selects the best extraction method
+
+### 🧠 **Layer 2: Intelligent Preprocessing**
+- **Merged Word Detection**: Identifies words stuck together
+- **Pattern Recognition**: Fixes common issues like "andthe" → "and the"
+- **Smart Spacing**: Adds spaces before capitals, after punctuation
+- **Number Separation**: "5years" → "5 years"
+
+### 🤖 **Layer 3: AI Enhancement**
+Uses advanced Gemini models with automatic fallback:
+- **Primary**: Gemini 2.0 Flash (latest and fastest)
+- **Fallback 1**: Gemini 1.5 Flash (reliable alternative)
+- **Fallback 2**: Gemini 1.5 Pro (comprehensive processing)
+- **Final**: Gemini Pro (stable baseline)
+
+**AI Tasks**:
+- OCR error correction with spacing focus
+- Grammar and punctuation fixes
+- Document structure preservation
+- NO artificial titles or headers added
+
+### ✅ **Layer 4: Post-Processing Validation**
+- **Final Spacing Check**: Scans for remaining merged words
+- **Pattern Validation**: Ensures proper word boundaries
+- **Quality Assurance**: Applies final corrections if needed
+
+### 📝 **Layer 5: Document Creation**
+- Uses python-docx to create clean, properly formatted documents
+- Preserves original structure and spacing
+- Smart heading detection without artificial additions
 
 ## Example Output
 

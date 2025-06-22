@@ -26,48 +26,117 @@ def test_model_initialization():
         print(f"❌ Failed to initialize converter: {e}")
         return False
 
-def test_text_processing():
-    """Test text processing with sample text"""
-    print("\nTesting text processing...")
-    
+def test_spacing_fixes():
+    """Test spacing preprocessing and fixes"""
+    print("\nTesting spacing fixes...")
+
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
         print("❌ GEMINI_API_KEY not set")
         return False
-    
-    # Sample text with spacing issues
-    sample_text = """This   is   a   test   document   with   irregular   spacing.
 
-CHAPTER 1: INTRODUCTION
+    # Sample text with common spacing issues
+    test_cases = [
+        ("thequickbrownfox", "the quick brown fox"),
+        ("andtheresults", "and the results"),
+        ("itis5years", "it is 5 years"),
+        ("word.Another", "word. Another"),
+        ("However,thecompany", "However, the company"),
+        ("therefor", "therefore"),
+        ("wordAnother", "word Another"),
+    ]
 
-This paragraph has  multiple  spaces  between  words  that  should  be  preserved  properly.
+    try:
+        converter = PDFToWordConverter(api_key)
 
-Some bullet points:
-1. First point with proper spacing
-2. Second point  with  extra  spaces
-3. Third point
+        print("🔧 Testing preprocessing fixes:")
+        for original, expected in test_cases:
+            fixed = converter._preprocess_spacing(original)
+            if expected.lower() in fixed.lower():
+                print(f"  ✅ '{original}' → '{fixed}'")
+            else:
+                print(f"  ⚠️  '{original}' → '{fixed}' (expected: '{expected}')")
+
+        # Test full processing with merged words
+        sample_text = """Thisisanimportantdocumentaboutthecompany.Theresultsshow5milliondollars.However,therearesomeissues."""
+
+        processed_text = converter.process_with_gemini(sample_text)
+
+        print("\n📄 Original merged text:")
+        print(sample_text)
+        print("\n📝 After AI processing:")
+        print(processed_text)
+
+        # Check for common spacing issues
+        spacing_issues = [
+            "thisis", "thecompany", "theresults", "thereare", "5million"
+        ]
+
+        issues_found = 0
+        for issue in spacing_issues:
+            if issue.lower() in processed_text.lower():
+                issues_found += 1
+                print(f"  ⚠️  Still found: '{issue}'")
+
+        if issues_found == 0:
+            print("✅ No spacing issues detected in processed text")
+        else:
+            print(f"⚠️  Found {issues_found} remaining spacing issues")
+
+        return issues_found == 0
+
+    except Exception as e:
+        print(f"❌ Spacing test failed: {e}")
+        return False
+
+def test_text_processing():
+    """Test text processing with sample text"""
+    print("\nTesting comprehensive text processing...")
+
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key:
+        print("❌ GEMINI_API_KEY not set")
+        return False
+
+    # Sample text with various issues
+    sample_text = """Thisisatestdocumentwithspacingissues.
+
+CHAPTER1:INTRODUCTION
+
+Thisparagraphhasmultiplespacesbetweenwordsandmergedwords.Thecompanyreported5milliondollars.However,theresultswerenot satisfactory.
+
+Somebulletpoints:
+1.Firstpointwithproperspacingissues
+2.Secondpointwithextraspaces
+3.Thirdpoint
 
 CONCLUSION:
-The document should maintain proper formatting without adding unnecessary titles."""
+Thedocumentshouldmaintainproperformattingwithoutaddingtitles."""
 
     try:
         converter = PDFToWordConverter(api_key)
         processed_text = converter.process_with_gemini(sample_text)
-        
+
         print("✅ Text processing successful")
         print("\n📄 Original text preview:")
-        print(sample_text[:200] + "...")
+        print(sample_text[:150] + "...")
         print("\n📝 Processed text preview:")
-        print(processed_text[:200] + "...")
-        
+        print(processed_text[:150] + "...")
+
         # Check if unnecessary title was added
         if processed_text.lower().startswith('converted document'):
             print("⚠️  Warning: Unnecessary title detected")
         else:
             print("✅ No unnecessary title added")
-            
+
+        # Check for spacing improvements
+        if "This is a test" in processed_text and "The company reported" in processed_text:
+            print("✅ Spacing improvements detected")
+        else:
+            print("⚠️  Spacing improvements may be incomplete")
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Text processing failed: {e}")
         return False
@@ -112,6 +181,7 @@ def main():
     
     tests = [
         test_model_initialization,
+        test_spacing_fixes,
         test_text_processing,
         test_document_creation
     ]

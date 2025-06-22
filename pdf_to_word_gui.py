@@ -197,8 +197,9 @@ You can also set the GEMINI_API_KEY environment variable to avoid entering it ea
 
             # Initialize converter
             converter = PDFToWordConverter(self.api_key.get().strip())
-            self.log_message("Gemini API initialized successfully")
-            self.log_message(f"Using model: {converter.model_names[0]} (with fallback support)")
+            self.log_message("✅ Gemini API initialized successfully")
+            self.log_message(f"🤖 Using AI model: {converter.model_names[0]} (with fallback support)")
+            self.log_message("📄 Starting multi-method PDF extraction with spacing optimization...")
             
             # Perform conversion
             output_file = converter.convert_pdf_to_word(
