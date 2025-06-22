@@ -4,16 +4,26 @@ This tool converts PDF files to Word documents using Google's Gemini API for int
 
 ## Features
 
+### 🚀 **Core Conversion Features**
 - 📄 **Multi-Method PDF Extraction** (pdfplumber → PyMuPDF → PyPDF2)
 - 🔧 **Intelligent Spacing Detection** - Fixes merged words automatically
-- 🤖 **Advanced AI Processing** with model fallback (Flash 2.5 → Flash 2.0 → Pro)
-- 📝 Generate clean Word documents without unnecessary titles
-- 🖥️ **Simple GUI application** for easy drag-and-drop usage
-- 🔧 Command-line interface for automation and scripting
-- 📋 **4-Layer Processing**: Extraction → Preprocessing → AI → Post-processing
-- 🚀 One-click setup and conversion
-- 🔄 **Automatic fallback** for maximum reliability
+- 🤖 **Dynamic Model Selection** - Choose from all available Gemini models
+- 📝 **Enhanced Document Structure** - Smart heading detection and formatting
 - ✨ **Perfect spacing preservation** - No more merged words!
+
+### 🎯 **Advanced Features**
+- 🤖 **All Gemini Models Available** - Flash 2.5, Flash 2.0, Pro, and more
+- 📊 **Conversion Analytics** - Track success rates and performance
+- 🔍 **Quality Assessment** - Automatic quality checking and reporting
+- 📈 **Detailed Reports** - Comprehensive conversion analysis
+- 📋 **Document Structure Analysis** - Heading detection and organization
+- 🎛️ **User Model Selection** - Choose your preferred AI model
+
+### 🖥️ **User Interfaces**
+- 🖥️ **Enhanced GUI** with model selection and options
+- 🔧 **Advanced CLI** with full feature access
+- 📊 **Statistics Tracking** - Monitor conversion performance
+- 🚀 **One-click setup** and conversion
 
 ## Prerequisites
 

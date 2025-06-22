@@ -29,8 +29,11 @@ class PDFToWordGUI:
         self.pdf_file_path = tk.StringVar()
         self.output_file_path = tk.StringVar()
         self.api_key = tk.StringVar()
+        self.selected_model = tk.StringVar()
+        self.generate_report = tk.BooleanVar()
         self.is_converting = False
-        
+        self.available_models = []
+
         # Load API key from environment if available
         env_api_key = os.getenv('GEMINI_API_KEY', '')
         self.api_key.set(env_api_key)
@@ -60,49 +63,107 @@ class PDFToWordGUI:
         
         ttk.Button(main_frame, text="Help", command=self.show_api_help, width=8).grid(
             row=1, column=2, padx=(5, 0), pady=5)
-        
-        # Input file section
-        ttk.Label(main_frame, text="PDF File:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        pdf_entry = ttk.Entry(main_frame, textvariable=self.pdf_file_path, width=50)
-        pdf_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(10, 5), pady=5)
-        
-        ttk.Button(main_frame, text="Browse", command=self.browse_pdf_file, width=8).grid(
+
+        # Model selection section
+        ttk.Label(main_frame, text="AI Model:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.model_combo = ttk.Combobox(main_frame, textvariable=self.selected_model,
+                                       state="readonly", width=47)
+        self.model_combo.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(10, 5), pady=5)
+
+        ttk.Button(main_frame, text="Refresh", command=self.refresh_models, width=8).grid(
             row=2, column=2, padx=(5, 0), pady=5)
-        
-        # Output file section
-        ttk.Label(main_frame, text="Output File:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        output_entry = ttk.Entry(main_frame, textvariable=self.output_file_path, width=50)
-        output_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=(10, 5), pady=5)
-        
-        ttk.Button(main_frame, text="Browse", command=self.browse_output_file, width=8).grid(
+
+        # Input file section
+        ttk.Label(main_frame, text="PDF File:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        pdf_entry = ttk.Entry(main_frame, textvariable=self.pdf_file_path, width=50)
+        pdf_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=(10, 5), pady=5)
+
+        ttk.Button(main_frame, text="Browse", command=self.browse_pdf_file, width=8).grid(
             row=3, column=2, padx=(5, 0), pady=5)
-        
+
+        # Output file section
+        ttk.Label(main_frame, text="Output File:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        output_entry = ttk.Entry(main_frame, textvariable=self.output_file_path, width=50)
+        output_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=(10, 5), pady=5)
+
+        ttk.Button(main_frame, text="Browse", command=self.browse_output_file, width=8).grid(
+            row=4, column=2, padx=(5, 0), pady=5)
+
+        # Options section
+        options_frame = ttk.LabelFrame(main_frame, text="Options", padding="5")
+        options_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+
+        ttk.Checkbutton(options_frame, text="Generate detailed conversion report",
+                       variable=self.generate_report).grid(row=0, column=0, sticky=tk.W)
+
         # Convert button
-        self.convert_button = ttk.Button(main_frame, text="Convert PDF to Word", 
+        self.convert_button = ttk.Button(main_frame, text="🚀 Convert PDF to Word",
                                         command=self.start_conversion, style="Accent.TButton")
-        self.convert_button.grid(row=4, column=0, columnspan=3, pady=20)
-        
+        self.convert_button.grid(row=6, column=0, columnspan=3, pady=20)
+
         # Progress bar
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
-        
+        self.progress.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+
         # Status label
         self.status_label = ttk.Label(main_frame, text="Ready to convert", foreground="green")
-        self.status_label.grid(row=6, column=0, columnspan=3, pady=5)
-        
+        self.status_label.grid(row=8, column=0, columnspan=3, pady=5)
+
         # Log area
-        ttk.Label(main_frame, text="Conversion Log:").grid(row=7, column=0, sticky=tk.W, pady=(20, 5))
-        
+        ttk.Label(main_frame, text="Conversion Log:").grid(row=9, column=0, sticky=tk.W, pady=(20, 5))
+
         self.log_text = scrolledtext.ScrolledText(main_frame, height=12, width=70)
-        self.log_text.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        
+        self.log_text.grid(row=10, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+
         # Configure grid weights for resizing
-        main_frame.rowconfigure(8, weight=1)
+        main_frame.rowconfigure(10, weight=1)
         
         # Add some initial text to log
         self.log_message("Welcome to PDF to Word Converter!")
         self.log_message("Please enter your Gemini API key and select a PDF file to convert.")
-        
+
+        # Initialize models
+        self.refresh_models()
+
+    def refresh_models(self):
+        """Refresh the list of available models"""
+        try:
+            if self.api_key.get().strip():
+                self.log_message("🔄 Fetching available models...")
+                converter = PDFToWordConverter(self.api_key.get().strip())
+                self.available_models = converter.get_available_models()
+
+                # Update combobox
+                self.model_combo['values'] = self.available_models
+                if self.available_models:
+                    self.selected_model.set(self.available_models[0])  # Set default
+                    self.log_message(f"✅ Found {len(self.available_models)} available models")
+                else:
+                    self.log_message("⚠️ No models found")
+            else:
+                # Show default models without API key
+                default_models = [
+                    'gemini-2.0-flash-exp',
+                    'gemini-1.5-flash',
+                    'gemini-1.5-pro',
+                    'gemini-pro'
+                ]
+                self.model_combo['values'] = default_models
+                self.selected_model.set(default_models[0])
+                self.log_message("📋 Showing default models (enter API key to refresh)")
+
+        except Exception as e:
+            self.log_message(f"⚠️ Failed to fetch models: {str(e)}")
+            # Fallback to default models
+            default_models = [
+                'gemini-2.0-flash-exp',
+                'gemini-1.5-flash',
+                'gemini-1.5-pro',
+                'gemini-pro'
+            ]
+            self.model_combo['values'] = default_models
+            self.selected_model.set(default_models[0])
+
     def browse_pdf_file(self):
         """Open file dialog to select PDF file"""
         file_path = filedialog.askopenfilename(
@@ -195,16 +256,19 @@ You can also set the GEMINI_API_KEY environment variable to avoid entering it ea
         try:
             self.log_message("Starting conversion process...")
 
-            # Initialize converter
-            converter = PDFToWordConverter(self.api_key.get().strip())
+            # Initialize converter with selected model
+            selected_model = self.selected_model.get() if self.selected_model.get() else None
+            converter = PDFToWordConverter(self.api_key.get().strip(), preferred_model=selected_model)
             self.log_message("✅ Gemini API initialized successfully")
-            self.log_message(f"🤖 Using AI model: {converter.model_names[0]} (with fallback support)")
+            self.log_message(f"🤖 Using AI model: {converter.get_current_model()}")
+            self.log_message(f"📋 Available models: {len(converter.get_available_models())}")
             self.log_message("📄 Starting multi-method PDF extraction with spacing optimization...")
             
             # Perform conversion
             output_file = converter.convert_pdf_to_word(
                 pdf_path=self.pdf_file_path.get(),
-                output_path=self.output_file_path.get()
+                output_path=self.output_file_path.get(),
+                generate_report=self.generate_report.get()
             )
             
             # Success
