@@ -236,7 +236,7 @@ EXAMPLES OF SPACING FIXES:
 Text to process:
 {text_content}
 
-Return ONLY the corrected text with proper spacing:
+Return ONLY the corrected text with proper spacing:"""
 
         # Try models in fallback order
         for i, model_name in enumerate(self.model_names):
