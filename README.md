@@ -4,13 +4,14 @@ This tool converts PDF files to Word documents using Google's Gemini API for int
 
 ## Features
 
-- 📄 Extract text from PDF files
-- 🤖 Use Gemini AI to clean and format extracted text
-- 📝 Generate well-structured Word documents
+- 📄 Extract text from PDF files with accurate spacing preservation
+- 🤖 **Advanced AI Processing** with model fallback (Flash 2.5 → Flash 2.0 → Pro)
+- 📝 Generate clean Word documents without unnecessary titles
 - 🖥️ **Simple GUI application** for easy drag-and-drop usage
 - 🔧 Command-line interface for automation and scripting
-- 📋 Automatic text formatting and error correction
+- 📋 Intelligent text formatting while preserving original structure
 - 🚀 One-click setup and conversion
+- 🔄 **Automatic model fallback** for maximum reliability
 
 ## Prerequisites
 
@@ -93,12 +94,17 @@ python pdf_to_word_converter.py document.pdf -o converted_document.docx -k your_
 ## How It Works
 
 1. **PDF Text Extraction**: Uses PyPDF2 to extract raw text from PDF pages
-2. **AI Processing**: Sends extracted text to Gemini API for:
+2. **Smart AI Processing**: Uses advanced Gemini models with automatic fallback:
+   - **Primary**: Gemini 2.0 Flash (latest and fastest)
+   - **Fallback 1**: Gemini 1.5 Flash (reliable alternative)
+   - **Fallback 2**: Gemini 1.5 Pro (comprehensive processing)
+   - **Final**: Gemini Pro (stable baseline)
+3. **AI Enhancement**:
    - OCR error correction
-   - Text formatting and structure improvement
+   - Preserves original spacing and character formatting
    - Grammar and punctuation fixes
-   - Proper paragraph organization
-3. **Word Document Creation**: Uses python-docx to create a formatted Word document
+   - Maintains document structure without adding titles
+4. **Word Document Creation**: Uses python-docx to create clean, properly formatted documents
 
 ## Example Output
 

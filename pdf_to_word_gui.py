@@ -194,10 +194,11 @@ You can also set the GEMINI_API_KEY environment variable to avoid entering it ea
         """Perform the actual conversion"""
         try:
             self.log_message("Starting conversion process...")
-            
+
             # Initialize converter
             converter = PDFToWordConverter(self.api_key.get().strip())
             self.log_message("Gemini API initialized successfully")
+            self.log_message(f"Using model: {converter.model_names[0]} (with fallback support)")
             
             # Perform conversion
             output_file = converter.convert_pdf_to_word(

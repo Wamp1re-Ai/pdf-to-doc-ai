@@ -25,14 +25,37 @@ class PDFToWordConverter:
     def __init__(self, api_key: str):
         """
         Initialize the converter with Gemini API key
-        
+
         Args:
             api_key (str): Google Gemini API key
         """
         self.api_key = api_key
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
-        
+
+        # Model fallback order: Flash 2.5 -> Flash 2.0 -> Gemma 27B
+        self.model_names = [
+            'gemini-2.0-flash-exp',  # Latest Flash 2.5
+            'gemini-1.5-flash',      # Flash 2.0
+            'gemini-1.5-pro',        # Pro model as backup
+            'gemini-pro'             # Original pro model
+        ]
+        self.current_model = None
+        self._initialize_model()
+
+    def _initialize_model(self):
+        """Initialize the best available model with fallback"""
+        for model_name in self.model_names:
+            try:
+                self.current_model = genai.GenerativeModel(model_name)
+                logger.info(f"Successfully initialized model: {model_name}")
+                break
+            except Exception as e:
+                logger.warning(f"Failed to initialize {model_name}: {str(e)}")
+                continue
+
+        if self.current_model is None:
+            raise Exception("Failed to initialize any Gemini model")
+
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """
         Extract text content from PDF file
@@ -61,69 +84,96 @@ class PDFToWordConverter:
     
     def process_with_gemini(self, text_content: str) -> str:
         """
-        Process extracted text with Gemini API for better formatting
-        
+        Process extracted text with Gemini API for better formatting with model fallback
+
         Args:
             text_content (str): Raw text extracted from PDF
-            
+
         Returns:
             str: Processed and formatted text
         """
-        try:
-            prompt = f"""
-            Please clean up and format the following text extracted from a PDF document. 
-            Make it well-structured and readable for a Word document:
-            
-            1. Fix any OCR errors or garbled text
-            2. Organize content with proper headings and paragraphs
-            3. Maintain the original meaning and structure
-            4. Remove unnecessary line breaks and formatting artifacts
-            5. Ensure proper punctuation and grammar
-            
-            Text to process:
-            {text_content}
-            
-            Please return only the cleaned and formatted text without any additional commentary.
-            """
-            
-            response = self.model.generate_content(prompt)
-            logger.info("Text processed successfully with Gemini API")
-            return response.text
-            
-        except Exception as e:
-            logger.error(f"Error processing text with Gemini: {str(e)}")
-            # Return original text if Gemini processing fails
-            return text_content
+        prompt = f"""
+Clean up and format this text extracted from a PDF document. Follow these rules strictly:
+
+1. Fix OCR errors and garbled text
+2. Preserve original spacing and paragraph structure
+3. Maintain exact character spacing - do not add extra spaces between words
+4. Keep the original meaning and content structure
+5. Remove only obvious formatting artifacts (like random line breaks mid-sentence)
+6. Ensure proper punctuation and grammar
+7. Do NOT add any titles, headers, or introductory text
+8. Return ONLY the cleaned original content
+
+Text to process:
+{text_content}
+
+Return only the cleaned text with no additional commentary or formatting."""
+
+        # Try models in fallback order
+        for i, model_name in enumerate(self.model_names):
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                logger.info(f"Text processed successfully with {model_name}")
+                return response.text
+
+            except Exception as e:
+                logger.warning(f"Failed to process with {model_name}: {str(e)}")
+                if i < len(self.model_names) - 1:
+                    logger.info(f"Falling back to next model...")
+                    continue
+                else:
+                    logger.error("All models failed, returning original text")
+                    return text_content
+
+        return text_content
     
     def create_word_document(self, processed_text: str, output_path: str) -> None:
         """
-        Create a Word document from processed text
-        
+        Create a Word document from processed text with better formatting
+
         Args:
             processed_text (str): Formatted text content
             output_path (str): Path for the output Word document
         """
         try:
             doc = Document()
-            
-            # Add title
-            title = doc.add_heading('Converted Document', 0)
-            
+
+            # Do NOT add a title - start directly with content
+
             # Split text into paragraphs and add to document
             paragraphs = processed_text.split('\n\n')
-            
+
             for paragraph_text in paragraphs:
                 if paragraph_text.strip():
-                    # Check if it looks like a heading (short line, possibly all caps)
-                    if len(paragraph_text.strip()) < 100 and paragraph_text.strip().isupper():
-                        doc.add_heading(paragraph_text.strip(), level=1)
-                    else:
-                        doc.add_paragraph(paragraph_text.strip())
-            
+                    # Preserve original spacing and formatting
+                    lines = paragraph_text.split('\n')
+
+                    for line in lines:
+                        if line.strip():
+                            # Check if it looks like a heading (short line, all caps, or starts with numbers/bullets)
+                            line_stripped = line.strip()
+                            is_heading = (
+                                len(line_stripped) < 80 and
+                                (line_stripped.isupper() or
+                                 line_stripped.startswith(('1.', '2.', '3.', '4.', '5.', 'Chapter', 'CHAPTER', 'Section', 'SECTION')) or
+                                 line_stripped.endswith(':'))
+                            )
+
+                            if is_heading:
+                                doc.add_heading(line_stripped, level=1)
+                            else:
+                                # Add as regular paragraph, preserving spacing
+                                paragraph = doc.add_paragraph()
+                                paragraph.add_run(line.rstrip())  # Remove only trailing whitespace
+                        else:
+                            # Add empty line for spacing
+                            doc.add_paragraph()
+
             # Save the document
             doc.save(output_path)
             logger.info(f"Word document saved to: {output_path}")
-            
+
         except Exception as e:
             logger.error(f"Error creating Word document: {str(e)}")
             raise
